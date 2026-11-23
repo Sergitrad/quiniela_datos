@@ -2,45 +2,56 @@ import json
 import urllib.request
 from datetime import datetime
 
-# Fuente pública con el boleto oficial activo de La Quiniela (SELAE)
-URL_FUENTE = "https://loteriasyapuestas.es"
+# Endpoint oficial público de SELAE para próximos sorteos de La Quiniela (LAQU)
+URL_SELAE = "https://loteriasyapuestas.es"
 
 def obtener_boleto_oficial():
     req = urllib.request.Request(
-        URL_FUENTE,
-        headers={"User-Agent": "Mozilla/5.0"}
+        URL_SELAE,
+        headers={
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+            "Accept": "application/json"
+        }
     )
     with urllib.request.urlopen(req, timeout=15) as resp:
         datos = json.loads(resp.read().decode("utf-8"))
 
-    sorteo = datos[0] if isinstance(datos, list) else datos
-    jornada = sorteo.get("jornada", "Actual")
-    fecha_cierre = sorteo.get("fecha_cierre", "")[:16].replace("T", " ")
+    # Buscamos el sorteo activo que ya tenga los partidos publicados
+    sorteo = None
+    for s in datos:
+        if s.get("partidos") and len(s["partidos"]) >= 15:
+            sorteo = s
+            break
+    if not sorteo:
+        sorteo = datos[0]
+
+    jornada = sorteo.get("jornada", "Activa")
+    fecha_raw = sorteo.get("fecha_cierre", sorteo.get("fecha", ""))
+    fecha_cierre = fecha_raw[:16].replace("T", " ") if fecha_raw else "Consultar boleto"
     lista_partidos = sorteo.get("partidos", [])
 
     partidos_json = []
     partido_15_json = {}
 
     for idx, p in enumerate(lista_partidos, start=1):
-        local = p.get("local", f"Equipo Local {idx}").strip()
-        visitante = p.get("visitante", f"Equipo Visitante {idx}").strip()
+        local = p.get("local", f"Local {idx}").strip()
+        visitante = p.get("visitante", f"Visitante {idx}").strip()
 
-        # Probabilidades base ponderadas (factor campo local + equilibrio competitivo)
-        # Se pueden enriquecer conectando API-Football o cuotas si se desea
-        prob1, probX, prob2 = 0.46, 0.28, 0.26
+        # Ponderación inicial (ligera ventaja local + equilibrio competitivo)
+        prob1, probx, prob2 = 0.45, 0.28, 0.27
 
         item = {
             "numero": idx,
             "local": local,
             "visitante": visitante,
             "prob1": prob1,
-            "probX": probX,
+            "probX": probx,
             "prob2": prob2,
             "posLocal": 0,
             "posVisitante": 0,
-            "rachaLocal": "Datos oficiales SELAE",
-            "rachaVisitante": "Datos oficiales SELAE",
-            "h2h": f"Partido oficial #{idx} del boleto (Jornada {jornada})"
+            "rachaLocal": "Jornada oficial SELAE",
+            "rachaVisitante": "Boleto activo",
+            "h2h": f"Partido oficial #{idx} · Jornada {jornada}"
         }
 
         if idx <= 14:
@@ -61,3 +72,5 @@ def obtener_boleto_oficial():
 
 if __name__ == "__main__":
     obtener_boleto_oficial()
+
+
