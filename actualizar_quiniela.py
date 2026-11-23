@@ -6,6 +6,7 @@ from datetime import datetime
 URL_SELAE = "https://loteriasyapuestas.es" + "/servicios/proximosv3?game_id=LAQU&num=2"
 
 
+
 def obtener_boleto_oficial():
     req = urllib.request.Request(
         URL_SELAE,
