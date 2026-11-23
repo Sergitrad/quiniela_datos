@@ -1,1 +1,33 @@
+name: Actualizar Quiniela
+
+on:
+  schedule:
+    - cron: '0 */6 * * *' # Se ejecuta automáticamente cada 6 horas
+  workflow_dispatch:      # Permite lanzarlo manualmente con un botón
+
+permissions:
+  contents: write
+
+jobs:
+  actualizar:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Descargar repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Ejecutar script de SELAE
+        run: python actualizar_quiniela.py
+
+      - name: Guardar jornada_actual.json si hay cambios
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add jornada_actual.json
+          git diff --quiet && git diff --staged --quiet || (git commit -m "Actualización automática de jornada" && git push)
 
