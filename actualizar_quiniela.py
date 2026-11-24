@@ -1,11 +1,17 @@
-
 import json
+import socket
 import urllib.request
-from datetime import datetime
+from datetime import datetime, timedelta
+
+socket.setdefaulttimeout(10)
+
+hoy = datetime.now()
+fin = hoy + timedelta(days=14)
+rango = f"{hoy.strftime('%Y%m%d')}-{fin.strftime('%Y%m%d')}"
 
 HOST = "site.api." + "espn" + ".com"
-RUTA_1 = "/apis/site/v2/sports/soccer/esp.1/scoreboard"
-RUTA_2 = "/apis/site/v2/sports/soccer/esp.2/scoreboard"
+RUTA_1 = f"/apis/site/v2/sports/soccer/esp.1/scoreboard?dates={rango}"
+RUTA_2 = f"/apis/site/v2/sports/soccer/esp.2/scoreboard?dates={rango}"
 
 URL_PRIMERA = "https://" + HOST + RUTA_1
 URL_SEGUNDA = "https://" + HOST + RUTA_2
@@ -19,7 +25,7 @@ def leer_espn(url):
             "Accept": "application/json"
         }
     )
-    with urllib.request.urlopen(req, timeout=20) as resp:
+    with urllib.request.urlopen(req, timeout=10) as resp:
         datos = json.loads(resp.read().decode("utf-8"))
     return datos.get("events") or []
 
@@ -28,15 +34,14 @@ def obtener_boleto_oficial():
     primera = leer_espn(URL_PRIMERA)
     segunda = leer_espn(URL_SEGUNDA)
 
-    # Combinamos 10 partidos de Primera y 5 de Segunda (total 15)
     seleccion = primera[:10] + segunda[:5]
     if len(seleccion) < 15:
         seleccion = (primera + segunda)[:15]
 
     jornada = "Activa"
     fecha_cierre = "Consultar horario"
-    if primera:
-        primer_evento = primera[0]
+    primer_evento = next(iter(primera), None)
+    if primer_evento:
         season = primer_evento.get("season", {})
         if season.get("year"):
             jornada = str(season.get("year"))
@@ -48,8 +53,7 @@ def obtener_boleto_oficial():
     partido_15_json = {}
 
     for idx, ev in enumerate(seleccion[:15], start=1):
-        lista_comp = ev.get("competitions") or [{}]
-        comp = lista_comp[0] if lista_comp else {}
+        comp = next(iter(ev.get("competitions") or []), {})
         equipos = comp.get("competitors") or []
 
         local = f"Local {idx}"
@@ -59,8 +63,8 @@ def obtener_boleto_oficial():
 
         for eq in equipos:
             nombre = eq.get("team", {}).get("shortDisplayName") or eq.get("team", {}).get("displayName", "")
-            records = eq.get("records") or []
-            resumen = records[0].get("summary", "Temporada actual") if records else "Temporada actual"
+            rec = next(iter(eq.get("records") or []), {})
+            resumen = rec.get("summary", "Temporada actual")
             if eq.get("homeAway") == "home":
                 local = nombre
                 racha_local = f"Balance: {resumen}"
@@ -103,3 +107,4 @@ def obtener_boleto_oficial():
 
 if __name__ == "__main__":
     obtener_boleto_oficial()
+
