@@ -2,20 +2,21 @@ import json
 import urllib.request
 from datetime import datetime
 
-# Endpoint oficial público de SELAE para próximos sorteos de La Quiniela (LAQU)
-URL_SELAE = "https://loteriasyapuestas.es" + "/servicios/proximosv3?game_id=LAQU&num=2"
-
+# Endpoint oficial público de SELAE (con www.) para próximos sorteos de La Quiniela (LAQU)
+URL_SELAE = "https://loteriasyapuestas.es"
 
 
 def obtener_boleto_oficial():
     req = urllib.request.Request(
         URL_SELAE,
         headers={
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
-            "Accept": "application/json"
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+            "Accept": "application/json, text/plain, */*",
+            "Accept-Language": "es-ES,es;q=0.9",
+            "Referer": "https://loteriasyapuestas.es"
         }
     )
-    with urllib.request.urlopen(req, timeout=15) as resp:
+    with urllib.request.urlopen(req, timeout=20) as resp:
         datos = json.loads(resp.read().decode("utf-8"))
 
     # Buscamos el sorteo activo que ya tenga los partidos publicados
@@ -72,7 +73,7 @@ def obtener_boleto_oficial():
     with open("jornada_actual.json", "w", encoding="utf-8") as f:
         json.dump(salida, f, ensure_ascii=False, indent=2)
 
+
 if __name__ == "__main__":
     obtener_boleto_oficial()
-
 
