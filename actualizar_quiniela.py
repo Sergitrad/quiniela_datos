@@ -1,5 +1,6 @@
 import json
 import socket
+import urllib.parse
 import urllib.request
 from datetime import datetime, timedelta
 
@@ -7,14 +8,13 @@ socket.setdefaulttimeout(10)
 
 hoy = datetime.now()
 fin = hoy + timedelta(days=14)
-rango = f"{hoy.strftime('%Y%m%d')}-{fin.strftime('%Y%m%d')}"
+params = urllib.parse.urlencode({
+    "dates": f"{hoy.strftime('%Y%m%d')}-{fin.strftime('%Y%m%d')}"
+})
 
 HOST = "site.api." + "espn" + ".com"
-RUTA_1 = f"/apis/site/v2/sports/soccer/esp.1/scoreboard?dates={rango}"
-RUTA_2 = f"/apis/site/v2/sports/soccer/esp.2/scoreboard?dates={rango}"
-
-URL_PRIMERA = "https://" + HOST + RUTA_1
-URL_SEGUNDA = "https://" + HOST + RUTA_2
+URL_PRIMERA = "https://" + HOST + "/apis/site/v2/sports/soccer/esp.1/scoreboard?" + params
+URL_SEGUNDA = "https://" + HOST + "/apis/site/v2/sports/soccer/esp.2/scoreboard?" + params
 
 
 def leer_espn(url):
@@ -107,4 +107,3 @@ def obtener_boleto_oficial():
 
 if __name__ == "__main__":
     obtener_boleto_oficial()
-
