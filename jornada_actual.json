@@ -1,32 +1,34 @@
 {
-  "titulo_jornada": "Jornada 22 · LaLiga / Liga F",
-  "fecha_cierre": "Sábado 14:00h",
+  "titulo_jornada": "Jornada 2026 · La Quiniela",
+  "fecha_cierre": "2026-11-27 20:00",
+  "actualizado": "24/11/2026 13:37",
   "partidos": [
-    { "numero": 1, "local": "FC Barcelona", "visitante": "Real Sociedad", "prob1": 0.72, "probX": 0.18, "prob2": 0.10, "posLocal": 1, "posVisitante": 8, "rachaLocal": "V-V-V-E-V", "rachaVisitante": "E-V-D-V-E", "h2h": "Barça favorito claro en casa" },
-    { "numero": 2, "local": "Atlético Madrid", "visitante": "Villarreal", "prob1": 0.56, "probX": 0.25, "prob2": 0.19, "posLocal": 3, "posVisitante": 4, "rachaLocal": "V-E-V-V-D", "rachaVisitante": "V-D-V-V-E", "h2h": "Duelo directo de zona Champions" },
-    { "numero": 3, "local": "Athletic Club", "visitante": "Betis", "prob1": 0.51, "probX": 0.27, "prob2": 0.22, "posLocal": 5, "posVisitante": 7, "rachaLocal": "V-V-E-D-V", "rachaVisitante": "E-V-V-D-E", "h2h": "San Mamés suele decantar la balanza" },
-    { "numero": 4, "local": "Sevilla", "visitante": "Valencia", "prob1": 0.44, "probX": 0.30, "prob2": 0.26, "posLocal": 11, "posVisitante": 14, "rachaLocal": "D-E-V-E-D", "rachaVisitante": "E-D-V-E-D", "h2h": "Clásico muy igualado en Nervión" },
-    { "numero": 5, "local": "Girona", "visitante": "Celta", "prob1": 0.48, "probX": 0.27, "prob2": 0.25, "posLocal": 6, "posVisitante": 10, "rachaLocal": "V-D-E-V-V", "rachaVisitante": "D-V-E-D-V", "h2h": "Partidos abiertos con ocasiones" },
-    { "numero": 6, "local": "Osasuna", "visitante": "Mallorca", "prob1": 0.43, "probX": 0.32, "prob2": 0.25, "posLocal": 9, "posVisitante": 12, "rachaLocal": "V-E-D-V-E", "rachaVisitante": "E-D-E-V-D", "h2h": "El Sadar aprieta mucho" },
-    { "numero": 7, "local": "Rayo Vallecano", "visitante": "Alavés", "prob1": 0.47, "probX": 0.29, "prob2": 0.24, "posLocal": 13, "posVisitante": 15, "rachaLocal": "E-V-D-E-V", "rachaVisitante": "D-V-D-E-D", "h2h": "Ventaja local en Vallecas" },
-    { "numero": 8, "local": "Getafe", "visitante": "Espanyol", "prob1": 0.42, "probX": 0.34, "prob2": 0.24, "posLocal": 16, "posVisitante": 17, "rachaLocal": "E-E-D-V-E", "rachaVisitante": "D-D-V-E-D", "h2h": "Alta probabilidad de empate" },
-    { "numero": 9, "local": "Real Madrid Fem.", "visitante": "Atlético Fem.", "prob1": 0.54, "probX": 0.24, "prob2": 0.22, "posLocal": 2, "posVisitante": 3, "rachaLocal": "V-V-V-D-V", "rachaVisitante": "V-E-V-V-E", "h2h": "Derbi madrileño de Liga F" },
-    { "numero": 10, "local": "Levante Fem.", "visitante": "Madrid CFF", "prob1": 0.49, "probX": 0.26, "prob2": 0.25, "posLocal": 5, "posVisitante": 6, "rachaLocal": "V-E-V-D-V", "rachaVisitante": "D-V-V-E-D", "h2h": "Duelo directo en Liga F" },
-    { "numero": 11, "local": "Racing Santander", "visitante": "Zaragoza", "prob1": 0.46, "probX": 0.28, "prob2": 0.26, "posLocal": 2, "posVisitante": 7, "rachaLocal": "V-V-E-V-D", "rachaVisitante": "E-V-D-V-E", "h2h": "El Sardinero casi lleno" },
-    { "numero": 12, "local": "Almería", "visitante": "Sporting Gijón", "prob1": 0.50, "probX": 0.27, "prob2": 0.23, "posLocal": 3, "posVisitante": 5, "rachaLocal": "V-V-V-E-D", "rachaVisitante": "E-V-V-D-E", "h2h": "Almería muy fuerte en casa" },
-    { "numero": 13, "local": "Oviedo", "visitante": "Elche", "prob1": 0.41, "probX": 0.31, "prob2": 0.28, "posLocal": 6, "posVisitante": 4, "rachaLocal": "V-E-D-V-E", "rachaVisitante": "V-V-E-V-D", "h2h": "Choque muy parejo en Tartiere" },
-    { "numero": 14, "local": "Granada", "visitante": "Levante", "prob1": 0.44, "probX": 0.29, "prob2": 0.27, "posLocal": 8, "posVisitante": 1, "rachaLocal": "V-D-V-E-V", "rachaVisitante": "V-E-V-V-E", "h2h": "Partidazo de Segunda División" }
+    {
+      "numero": 1,
+      "local": "Levante",
+      "visitante": "Racing",
+      "prob1": 0.45,
+      "probX": 0.28,
+      "prob2": 0.27,
+      "posLocal": 0,
+      "posVisitante": 0,
+      "rachaLocal": "Balance: 2-6-5",
+      "rachaVisitante": "Balance: 5-2-6",
+      "h2h": "Partido #1 · 1ª Div"
+    },
+    {
+      "numero": 2,
+      "local": "Leganés",
+      "visitante": "CD Sabadell",
+      "prob1": 0.45,
+      "probX": 0.28,
+      "prob2": 0.27,
+      "posLocal": 0,
+      "posVisitante": 0,
+      "rachaLocal": "Balance: 5-3-7",
+      "rachaVisitante": "Balance: 4-7-4",
+      "h2h": "Partido #2 · 2ª Div"
+    }
   ],
-  "partido_15": {
-    "local": "Real Madrid",
-    "visitante": "Las Palmas",
-    "prob1": 0.78,
-    "probX": 0.14,
-    "prob2": 0.08,
-    "posLocal": 2,
-    "posVisitante": 18,
-    "rachaLocal": "V-V-E-V-V",
-    "rachaVisitante": "D-D-E-D-V",
-    "h2h": "Local muy favorito en el Bernabéu"
-  }
+  "partido_15": {}
 }
