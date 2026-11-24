@@ -3,8 +3,10 @@ import json
 import urllib.request
 from datetime import datetime
 
-# Endpoint oficial público de SELAE para próximos sorteos de La Quiniela (LAQU)
-URL_SELAE = "https://loteriasyapuestas.es"
+DOMINIO = "www." + "loteriasyapuestas" + ".es"
+RUTA = "/servicios/proximosv3"
+PARAMETROS = "?game_id=LAQU&num=2"
+URL_SELAE = "https://" + DOMINIO + RUTA + PARAMETROS
 
 
 def obtener_boleto_oficial():
@@ -14,7 +16,7 @@ def obtener_boleto_oficial():
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
             "Accept": "application/json, text/plain, */*",
             "Accept-Language": "es-ES,es;q=0.9",
-            "Referer": "https://loteriasyapuestas.es"
+            "Referer": "https://" + DOMINIO + "/es/la-quiniela"
         }
     )
     with urllib.request.urlopen(req, timeout=20) as resp:
@@ -27,7 +29,7 @@ def obtener_boleto_oficial():
             sorteo = s
             break
     if not sorteo:
-        sorteo = datos[0]
+        sorteo = datos[0] if isinstance(datos, list) and datos else datos
 
     jornada = sorteo.get("jornada", "Activa")
     fecha_raw = sorteo.get("fecha_cierre", sorteo.get("fecha", ""))
@@ -41,7 +43,6 @@ def obtener_boleto_oficial():
         local = p.get("local", f"Local {idx}").strip()
         visitante = p.get("visitante", f"Visitante {idx}").strip()
 
-        # Ponderación inicial (ligera ventaja local + equilibrio competitivo)
         prob1, probx, prob2 = 0.45, 0.28, 0.27
 
         item = {
