@@ -2,38 +2,69 @@ import json
 import urllib.request
 from datetime import datetime
 
-HOST = "www." + "thesportsdb" + ".com"
-BASE = "/api/v1/json/3/eventsnextleague.php?id="
-URL_PRIMERA = "https://" + HOST + BASE + "4335"
-URL_SEGUNDA = "https://" + HOST + BASE + "4400"
+HOST = "site.api." + "espn" + ".com"
+RUTA_1 = "/apis/site/v2/sports/soccer/esp.1/scoreboard"
+RUTA_2 = "/apis/site/v2/sports/soccer/esp.2/scoreboard"
+
+URL_PRIMERA = "https://" + HOST + RUTA_1
+URL_SEGUNDA = "https://" + HOST + RUTA_2
 
 
-def leer_liga(url):
-    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+def leer_espn(url):
+    req = urllib.request.Request(
+        url,
+        headers={
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+            "Accept": "application/json"
+        }
+    )
     with urllib.request.urlopen(req, timeout=20) as resp:
         datos = json.loads(resp.read().decode("utf-8"))
     return datos.get("events") or []
 
 
 def obtener_boleto_oficial():
-    primera = leer_liga(URL_PRIMERA)
-    segunda = leer_liga(URL_SEGUNDA)
+    primera = leer_espn(URL_PRIMERA)
+    segunda = leer_espn(URL_SEGUNDA)
 
-    # Tomamos los próximos 10 partidos de Primera y 5 de Segunda (total 15)
+    # Combinamos 10 partidos de Primera y 5 de Segunda (total 15)
     seleccion = primera[:10] + segunda[:5]
     if len(seleccion) < 15:
         seleccion = (primera + segunda)[:15]
 
-    jornada = primera[0].get("intRound", "Activa") if primera else "Activa"
-    fecha_raw = primera[0].get("strTimestamp", "") if primera else ""
-    fecha_cierre = fecha_raw[:16].replace("T", " ") if fecha_raw else "Consultar horario"
+    jornada = "Activa"
+    fecha_cierre = "Consultar horario"
+    if primera:
+        season = primera.get("season", {})
+        if season.get("slug"):
+            jornada = str(season.get("year", "Activa"))
+        fecha_raw = primera.get("date", "")
+        if fecha_raw:
+            fecha_cierre = fecha_raw[:16].replace("T", " ")
 
     partidos_json = []
     partido_15_json = {}
 
     for idx, ev in enumerate(seleccion[:15], start=1):
-        local = ev.get("strHomeTeam", f"Local {idx}").strip()
-        visitante = ev.get("strAwayTeam", f"Visitante {idx}").strip()
+        comp = (ev.get("competitions") or [{}])
+        equipos = comp.get("competitors") or []
+
+        local = f"Local {idx}"
+        visitante = f"Visitante {idx}"
+        racha_local = "En forma"
+        racha_visitante = "En forma"
+
+        for eq in equipos:
+            nombre = eq.get("team", {}).get("shortDisplayName") or eq.get("team", {}).get("displayName", "")
+            records = eq.get("records") or []
+            resumen = records.get("summary", "Temporada actual") if records else "Temporada actual"
+            if eq.get("homeAway") == "home":
+                local = nombre
+                racha_local = f"Balance: {resumen}"
+            elif eq.get("homeAway") == "away":
+                visitante = nombre
+                racha_visitante = f"Balance: {resumen}"
+
         liga = "1ª Div" if ev in primera else "2ª Div"
 
         item = {
@@ -45,8 +76,8 @@ def obtener_boleto_oficial():
             "prob2": 0.27,
             "posLocal": 0,
             "posVisitante": 0,
-            "rachaLocal": f"{liga} · Jornada {jornada}",
-            "rachaVisitante": "Próximo partido",
+            "rachaLocal": racha_local,
+            "rachaVisitante": racha_visitante,
             "h2h": f"Partido #{idx} · {liga}"
         }
 
