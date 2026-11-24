@@ -29,20 +29,23 @@ def leer_espn(url):
 
 
 def parsear_balance(resumen):
-    # ESPN suele devolver "V-E-D" (ej. "10-4-2") o "V-D"
     nums = [int(x) for x in re.findall(r"\d+", str(resumen))]
+    it = iter(nums)
     if len(nums) >= 3:
-        v, e, d = nums, nums, nums
+        v = next(it, 0)
+        e = next(it, 0)
+        d = next(it, 0)
     elif len(nums) == 2:
-        v, e, d = nums, 0, nums
+        v = next(it, 0)
+        e = 0
+        d = next(it, 0)
     else:
-        return 0.45, 0.28, 0.27
+        return 0.0, 0.0, 0
 
     total = v + e + d
     if total == 0:
-        return 0.45, 0.28, 0.27
+        return 0.0, 0.0, 0
 
-    # Puntos por partido (0 a 3) como medida de fuerza
     ppg = (v * 3 + e) / total
     tasa_empate = e / total
     return ppg, tasa_empate, total
@@ -52,32 +55,23 @@ def calcular_probabilidades(res_local, res_visitante):
     ppg_l, emp_l, tot_l = parsear_balance(res_local)
     ppg_v, emp_v, tot_v = parsear_balance(res_visitante)
 
-    # Si aún no hay datos suficientes de temporada, usamos base equilibrada
-    if tot_l == 0 or tot_v == 0 or isinstance(ppg_l, float) and ppg_l < 1.0 and tot_l < 1:
+    if tot_l == 0 or tot_v == 0:
         return 0.45, 0.28, 0.27
 
-    # Fuerza competitiva (evitamos ceros con base +0.35) + factor campo local (+0.35)
     fuerza_l = ppg_l + 0.70
     fuerza_v = ppg_v + 0.35
 
     diferencia = abs(fuerza_l - fuerza_v) / (fuerza_l + fuerza_v)
 
-    # Probabilidad de empate: sube si ambos empatan mucho y si están igualados
     media_empate = (emp_l + emp_v) / 2.0
     prob_x = 0.24 + (media_empate * 0.25) - (diferencia * 0.22)
     prob_x = max(0.14, min(0.36, prob_x))
 
-    # Repartimos el resto entre 1 y 2 según fuerza relativa
     restante = 1.0 - prob_x
     ratio_l = fuerza_l / (fuerza_l + fuerza_v)
-    prob_1 = restante * ratio_l
-    prob_2 = restante * (1.0 - ratio_l)
+    prob_1 = max(0.06, restante * ratio_l)
+    prob_2 = max(0.06, restante * (1.0 - ratio_l))
 
-    # Evitamos porcentajes extremos irreales (mínimo 6%)
-    prob_1 = max(0.06, prob_1)
-    prob_2 = max(0.06, prob_2)
-
-    # Normalizamos a 2 decimales sumando exactamente 1.00
     suma = prob_1 + prob_x + prob_2
     p1 = round(prob_1 / suma, 2)
     px = round(prob_x / suma, 2)
