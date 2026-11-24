@@ -1,3 +1,4 @@
+
 import json
 import urllib.request
 from datetime import datetime
@@ -35,10 +36,11 @@ def obtener_boleto_oficial():
     jornada = "Activa"
     fecha_cierre = "Consultar horario"
     if primera:
-        season = primera.get("season", {})
-        if season.get("slug"):
-            jornada = str(season.get("year", "Activa"))
-        fecha_raw = primera.get("date", "")
+        primer_evento = primera[0]
+        season = primer_evento.get("season", {})
+        if season.get("year"):
+            jornada = str(season.get("year"))
+        fecha_raw = primer_evento.get("date", "")
         if fecha_raw:
             fecha_cierre = fecha_raw[:16].replace("T", " ")
 
@@ -46,7 +48,8 @@ def obtener_boleto_oficial():
     partido_15_json = {}
 
     for idx, ev in enumerate(seleccion[:15], start=1):
-        comp = (ev.get("competitions") or [{}])
+        lista_comp = ev.get("competitions") or [{}]
+        comp = lista_comp[0] if lista_comp else {}
         equipos = comp.get("competitors") or []
 
         local = f"Local {idx}"
@@ -57,7 +60,7 @@ def obtener_boleto_oficial():
         for eq in equipos:
             nombre = eq.get("team", {}).get("shortDisplayName") or eq.get("team", {}).get("displayName", "")
             records = eq.get("records") or []
-            resumen = records.get("summary", "Temporada actual") if records else "Temporada actual"
+            resumen = records[0].get("summary", "Temporada actual") if records else "Temporada actual"
             if eq.get("homeAway") == "home":
                 local = nombre
                 racha_local = f"Balance: {resumen}"
@@ -100,4 +103,3 @@ def obtener_boleto_oficial():
 
 if __name__ == "__main__":
     obtener_boleto_oficial()
-
