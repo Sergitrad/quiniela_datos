@@ -1,8 +1,9 @@
+
 import json
 import urllib.request
 from datetime import datetime
 
-# Endpoint oficial público de SELAE (con www.) para próximos sorteos de La Quiniela (LAQU)
+# Endpoint oficial público de SELAE para próximos sorteos de La Quiniela (LAQU)
 URL_SELAE = "https://loteriasyapuestas.es"
 
 
@@ -76,4 +77,3 @@ def obtener_boleto_oficial():
 
 if __name__ == "__main__":
     obtener_boleto_oficial()
-
