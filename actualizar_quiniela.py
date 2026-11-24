@@ -1,4 +1,6 @@
+
 import json
+import re
 import socket
 import urllib.request
 from datetime import datetime
@@ -24,6 +26,64 @@ def leer_espn(url):
     with urllib.request.urlopen(req, timeout=10) as resp:
         datos = json.loads(resp.read().decode("utf-8"))
     return datos.get("events") or []
+
+
+def parsear_balance(resumen):
+    # ESPN suele devolver "V-E-D" (ej. "10-4-2") o "V-D"
+    nums = [int(x) for x in re.findall(r"\d+", str(resumen))]
+    if len(nums) >= 3:
+        v, e, d = nums, nums, nums
+    elif len(nums) == 2:
+        v, e, d = nums, 0, nums
+    else:
+        return 0.45, 0.28, 0.27
+
+    total = v + e + d
+    if total == 0:
+        return 0.45, 0.28, 0.27
+
+    # Puntos por partido (0 a 3) como medida de fuerza
+    ppg = (v * 3 + e) / total
+    tasa_empate = e / total
+    return ppg, tasa_empate, total
+
+
+def calcular_probabilidades(res_local, res_visitante):
+    ppg_l, emp_l, tot_l = parsear_balance(res_local)
+    ppg_v, emp_v, tot_v = parsear_balance(res_visitante)
+
+    # Si aún no hay datos suficientes de temporada, usamos base equilibrada
+    if tot_l == 0 or tot_v == 0 or isinstance(ppg_l, float) and ppg_l < 1.0 and tot_l < 1:
+        return 0.45, 0.28, 0.27
+
+    # Fuerza competitiva (evitamos ceros con base +0.35) + factor campo local (+0.35)
+    fuerza_l = ppg_l + 0.70
+    fuerza_v = ppg_v + 0.35
+
+    diferencia = abs(fuerza_l - fuerza_v) / (fuerza_l + fuerza_v)
+
+    # Probabilidad de empate: sube si ambos empatan mucho y si están igualados
+    media_empate = (emp_l + emp_v) / 2.0
+    prob_x = 0.24 + (media_empate * 0.25) - (diferencia * 0.22)
+    prob_x = max(0.14, min(0.36, prob_x))
+
+    # Repartimos el resto entre 1 y 2 según fuerza relativa
+    restante = 1.0 - prob_x
+    ratio_l = fuerza_l / (fuerza_l + fuerza_v)
+    prob_1 = restante * ratio_l
+    prob_2 = restante * (1.0 - ratio_l)
+
+    # Evitamos porcentajes extremos irreales (mínimo 6%)
+    prob_1 = max(0.06, prob_1)
+    prob_2 = max(0.06, prob_2)
+
+    # Normalizamos a 2 decimales sumando exactamente 1.00
+    suma = prob_1 + prob_x + prob_2
+    p1 = round(prob_1 / suma, 2)
+    px = round(prob_x / suma, 2)
+    p2 = round(1.00 - p1 - px, 2)
+
+    return p1, px, p2
 
 
 def obtener_boleto_oficial():
@@ -54,29 +114,34 @@ def obtener_boleto_oficial():
 
         local = f"Local {idx}"
         visitante = f"Visitante {idx}"
+        resumen_local = ""
+        resumen_visitante = ""
         racha_local = "En forma"
         racha_visitante = "En forma"
 
         for eq in equipos:
             nombre = eq.get("team", {}).get("shortDisplayName") or eq.get("team", {}).get("displayName", "")
             rec = next(iter(eq.get("records") or []), {})
-            resumen = rec.get("summary", "Temporada actual")
+            resumen = rec.get("summary", "")
             if eq.get("homeAway") == "home":
                 local = nombre
-                racha_local = f"Balance: {resumen}"
+                resumen_local = resumen
+                racha_local = f"Balance: {resumen}" if resumen else "Temporada actual"
             elif eq.get("homeAway") == "away":
                 visitante = nombre
-                racha_visitante = f"Balance: {resumen}"
+                resumen_visitante = resumen
+                racha_visitante = f"Balance: {resumen}" if resumen else "Temporada actual"
 
+        prob1, probx, prob2 = calcular_probabilidades(resumen_local, resumen_visitante)
         liga = "1ª Div" if ev in primera else "2ª Div"
 
         item = {
             "numero": idx,
             "local": local,
             "visitante": visitante,
-            "prob1": 0.45,
-            "probX": 0.28,
-            "prob2": 0.27,
+            "prob1": prob1,
+            "probX": probx,
+            "prob2": prob2,
             "posLocal": 0,
             "posVisitante": 0,
             "rachaLocal": racha_local,
@@ -89,7 +154,6 @@ def obtener_boleto_oficial():
         elif idx == 15:
             partido_15_json = item
 
-    # Garantizamos que siempre haya 14 partidos + pleno al 15 para que la app Flutter lo acepte
     while len(partidos_json) < 14:
         n = len(partidos_json) + 1
         partidos_json.append({
@@ -135,4 +199,3 @@ def obtener_boleto_oficial():
 
 if __name__ == "__main__":
     obtener_boleto_oficial()
-
