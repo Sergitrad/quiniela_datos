@@ -1,52 +1,61 @@
 import json
-import re
-import urllib.parse
 import urllib.request
 from datetime import datetime
 
-DOMINIO_SELAE = "www." + "loteriasyapuestas" + ".es"
-RUTA_SELAE = "/servicios/proximosv3?game_id=LAQU&num=2"
-URL_SELAE = "https://" + DOMINIO_SELAE + RUTA_SELAE
-URL_PUENTE = "https://allorigins.win" + urllib.parse.quote(URL_SELAE, safe="")
-URL_RESPALDO = "https://www." + "eduardolosilla" + ".es/"
-
-HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-    "Accept": "application/json, text/html, */*",
-    "Accept-Language": "es-ES,es;q=0.9"
-}
+HOST = "www." + "thesportsdb" + ".com"
+BASE = "/api/v1/json/3/eventsnextleague.php?id="
+URL_PRIMERA = "https://" + HOST + BASE + "4335"
+URL_SEGUNDA = "https://" + HOST + BASE + "4400"
 
 
-def descargar(url):
-    req = urllib.request.Request(url, headers=HEADERS)
-    with urllib.request.urlopen(req, timeout=25) as resp:
-        return resp.read().decode("utf-8", errors="ignore")
+def leer_liga(url):
+    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+    with urllib.request.urlopen(req, timeout=20) as resp:
+        datos = json.loads(resp.read().decode("utf-8"))
+    return datos.get("events") or []
 
 
-def construir_salida(jornada, fecha_cierre, parejas):
+def obtener_boleto_oficial():
+    primera = leer_liga(URL_PRIMERA)
+    segunda = leer_liga(URL_SEGUNDA)
+
+    # Tomamos los próximos 10 partidos de Primera y 5 de Segunda (total 15)
+    seleccion = primera[:10] + segunda[:5]
+    if len(seleccion) < 15:
+        seleccion = (primera + segunda)[:15]
+
+    jornada = primera[0].get("intRound", "Activa") if primera else "Activa"
+    fecha_raw = primera[0].get("strTimestamp", "") if primera else ""
+    fecha_cierre = fecha_raw[:16].replace("T", " ") if fecha_raw else "Consultar horario"
+
     partidos_json = []
     partido_15_json = {}
 
-    for idx, (local, visitante) in enumerate(parejas[:15], start=1):
+    for idx, ev in enumerate(seleccion[:15], start=1):
+        local = ev.get("strHomeTeam", f"Local {idx}").strip()
+        visitante = ev.get("strAwayTeam", f"Visitante {idx}").strip()
+        liga = "1ª Div" if ev in primera else "2ª Div"
+
         item = {
             "numero": idx,
-            "local": local.strip(),
-            "visitante": visitante.strip(),
+            "local": local,
+            "visitante": visitante,
             "prob1": 0.45,
             "probX": 0.28,
             "prob2": 0.27,
             "posLocal": 0,
             "posVisitante": 0,
-            "rachaLocal": "Jornada oficial",
-            "rachaVisitante": "Boleto activo",
-            "h2h": f"Partido #{idx} · Jornada {jornada}"
+            "rachaLocal": f"{liga} · Jornada {jornada}",
+            "rachaVisitante": "Próximo partido",
+            "h2h": f"Partido #{idx} · {liga}"
         }
+
         if idx <= 14:
             partidos_json.append(item)
         elif idx == 15:
             partido_15_json = item
 
-    return {
+    salida = {
         "titulo_jornada": f"Jornada {jornada} · La Quiniela",
         "fecha_cierre": fecha_cierre,
         "actualizado": datetime.now().strftime("%d/%m/%Y %H:%M"),
@@ -54,38 +63,6 @@ def construir_salida(jornada, fecha_cierre, parejas):
         "partido_15": partido_15_json
     }
 
-
-def desde_selae():
-    for url in (URL_PUENTE, URL_SELAE):
-        try:
-            texto = descargar(url)
-            datos = json.loads(texto)
-            sorteo = next((s for s in datos if s.get("partidos") and len(s["partidos"]) >= 15), datos)
-            jornada = sorteo.get("jornada", "Activa")
-            fecha_raw = sorteo.get("fecha_cierre", sorteo.get("fecha", ""))
-            fecha_cierre = fecha_raw[:16].replace("T", " ") if fecha_raw else "Consultar boleto"
-            parejas = [(p.get("local", ""), p.get("visitante", "")) for p in sorteo.get("partidos", [])]
-            if len(parejas) >= 15:
-                return construir_salida(jornada, fecha_cierre, parejas)
-        except Exception:
-            continue
-    return None
-
-
-def desde_respaldo():
-    html = descargar(URL_RESPALDO)
-    limpio = re.sub(r"<[^>]+>", " ", html)
-    limpio = re.sub(r"\s+", " ", limpio)
-    m_jor = re.search(r"JORNADA\s+(\d+)", limpio, re.IGNORECASE)
-    jornada = m_jor.group(1) if m_jor else "Activa"
-    parejas = re.findall(r"\b(?:[1-9]|1[0-5])\s+([A-ZÁÉÍÓÚÑ0-9.\- ]{2,25}?)\s+-\s+([A-ZÁÉÍÓÚÑ0-9.\- ]{2,25}?)(?=\s+(?:LUN|MAR|MIÉ|MIE|JUE|VIE|SÁB|SAB|DOM|\d))", limpio)
-    if len(parejas) >= 15:
-        return construir_salida(jornada, "Consultar horario", parejas[:15])
-    raise RuntimeError("No se pudieron extraer los 15 partidos de ninguna fuente.")
-
-
-def obtener_boleto_oficial():
-    salida = desde_selae() or desde_respaldo()
     with open("jornada_actual.json", "w", encoding="utf-8") as f:
         json.dump(salida, f, ensure_ascii=False, indent=2)
 
