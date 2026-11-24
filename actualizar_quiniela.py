@@ -1,20 +1,16 @@
 import json
 import socket
-import urllib.parse
 import urllib.request
-from datetime import datetime, timedelta
+from datetime import datetime
 
 socket.setdefaulttimeout(10)
 
-hoy = datetime.now()
-fin = hoy + timedelta(days=14)
-params = urllib.parse.urlencode({
-    "dates": f"{hoy.strftime('%Y%m%d')}-{fin.strftime('%Y%m%d')}"
-})
-
 HOST = "site.api." + "espn" + ".com"
-URL_PRIMERA = "https://" + HOST + "/apis/site/v2/sports/soccer/esp.1/scoreboard?" + params
-URL_SEGUNDA = "https://" + HOST + "/apis/site/v2/sports/soccer/esp.2/scoreboard?" + params
+RUTA_1 = "/apis/site/v2/sports/soccer/esp.1/scoreboard"
+RUTA_2 = "/apis/site/v2/sports/soccer/esp.2/scoreboard"
+
+URL_PRIMERA = "https://" + HOST + RUTA_1
+URL_SEGUNDA = "https://" + HOST + RUTA_2
 
 
 def leer_espn(url):
@@ -93,6 +89,38 @@ def obtener_boleto_oficial():
         elif idx == 15:
             partido_15_json = item
 
+    # Garantizamos que siempre haya 14 partidos + pleno al 15 para que la app Flutter lo acepte
+    while len(partidos_json) < 14:
+        n = len(partidos_json) + 1
+        partidos_json.append({
+            "numero": n,
+            "local": f"Por definir {n}A",
+            "visitante": f"Por definir {n}B",
+            "prob1": 0.34,
+            "probX": 0.33,
+            "prob2": 0.33,
+            "posLocal": 10,
+            "posVisitante": 10,
+            "rachaLocal": "-",
+            "rachaVisitante": "-",
+            "h2h": "Pendiente de jornada"
+        })
+
+    if not partido_15_json:
+        partido_15_json = {
+            "numero": 15,
+            "local": "Por definir 15A",
+            "visitante": "Por definir 15B",
+            "prob1": 0.34,
+            "probX": 0.33,
+            "prob2": 0.33,
+            "posLocal": 10,
+            "posVisitante": 10,
+            "rachaLocal": "-",
+            "rachaVisitante": "-",
+            "h2h": "Pleno al 15"
+        }
+
     salida = {
         "titulo_jornada": f"Jornada {jornada} · La Quiniela",
         "fecha_cierre": fecha_cierre,
@@ -107,3 +135,4 @@ def obtener_boleto_oficial():
 
 if __name__ == "__main__":
     obtener_boleto_oficial()
+
