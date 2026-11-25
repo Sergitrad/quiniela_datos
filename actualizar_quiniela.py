@@ -1,183 +1,176 @@
-
 import json
 import re
 import socket
 import urllib.request
 from datetime import datetime
 
-socket.setdefaulttimeout(10)
+socket.setdefaulttimeout(15)
 
-HOST = "site.api." + "espn" + ".com"
-RUTA_1 = "/apis/site/v2/sports/soccer/esp.1/scoreboard"
-RUTA_2 = "/apis/site/v2/sports/soccer/esp.2/scoreboard"
-
-URL_PRIMERA = "https://" + HOST + RUTA_1
-URL_SEGUNDA = "https://" + HOST + RUTA_2
-
-
-def leer_espn(url):
-    req = urllib.request.Request(
-        url,
-        headers={
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-            "Accept": "application/json"
-        }
-    )
-    with urllib.request.urlopen(req, timeout=10) as resp:
-        datos = json.loads(resp.read().decode("utf-8"))
-    return datos.get("events") or []
+HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,application/json,*/*;q=0.8",
+    "Accept-Language": "es-ES,es;q=0.9"
+}
 
 
-def parsear_balance(resumen):
-    nums = [int(x) for x in re.findall(r"\d+", str(resumen))]
-    it = iter(nums)
-    if len(nums) >= 3:
-        v = next(it, 0)
-        e = next(it, 0)
-        d = next(it, 0)
-    elif len(nums) == 2:
-        v = next(it, 0)
-        e = 0
-        d = next(it, 0)
-    else:
-        return 0.0, 0.0, 0
-
-    total = v + e + d
-    if total == 0:
-        return 0.0, 0.0, 0
-
-    ppg = (v * 3 + e) / total
-    tasa_empate = e / total
-    return ppg, tasa_empate, total
+def descargar_texto(url):
+    req = urllib.request.Request(url, headers=HEADERS)
+    with urllib.request.urlopen(req, timeout=15) as resp:
+        return resp.read().decode("utf-8", errors="replace")
 
 
-def calcular_probabilidades(res_local, res_visitante):
-    ppg_l, emp_l, tot_l = parsear_balance(res_local)
-    ppg_v, emp_v, tot_v = parsear_balance(res_visitante)
+def limpiar_html(texto):
+    texto = re.sub(r"<[^>]+>", " ", texto)
+    texto = texto.replace("&nbsp;", " ").replace("&amp;", "&").replace("&#039;", "'").replace("&quot;", '"')
+    return re.sub(r"\s+", " ", texto).strip()
 
-    if tot_l == 0 or tot_v == 0:
-        return 0.45, 0.28, 0.27
 
-    fuerza_l = ppg_l + 0.70
-    fuerza_v = ppg_v + 0.35
+def obtener_desde_losilla():
+    url = "https://www.eduardolosilla.es/quiniela/boletos"
+    html = descargar_texto(url)
 
-    diferencia = abs(fuerza_l - fuerza_v) / (fuerza_l + fuerza_v)
+    # Buscar número de jornada
+    m_jor = re.search(r"Jornada\s+(\d+)", html, re.IGNORECASE)
+    jornada = m_jor.group(1) if m_jor else "Activa"
 
-    media_empate = (emp_l + emp_v) / 2.0
-    prob_x = 0.24 + (media_empate * 0.25) - (diferencia * 0.22)
-    prob_x = max(0.14, min(0.36, prob_x))
+    # Buscar fecha de cierre si aparece
+    m_cierre = re.search(r"cierre[^<]{0,40}(\d{1,2}/\d{1,2}(?:/\d{2,4})?\s*\d{1,2}:\d{2})", html, re.IGNORECASE)
+    fecha_cierre = m_cierre.group(1).strip() if m_cierre else "Consultar boleto oficial"
 
-    restante = 1.0 - prob_x
-    ratio_l = fuerza_l / (fuerza_l + fuerza_v)
-    prob_1 = max(0.06, restante * ratio_l)
-    prob_2 = max(0.06, restante * (1.0 - ratio_l))
+    partidos = []
 
-    suma = prob_1 + prob_x + prob_2
-    p1 = round(prob_1 / suma, 2)
-    px = round(prob_x / suma, 2)
-    p2 = round(1.00 - p1 - px, 2)
+    # Intentar extraer primero desde datos JSON embebidos en el HTML (SSR / Nuxt / Angular / State)
+    bloques_json = re.findall(r'\{[^{}]*"local"[^{}]*"visitante"[^{}]*\}', html)
+    if len(bloques_json) >= 15:
+        for idx, b in enumerate(bloques_json[:15], start=1):
+            try:
+                obj = json.loads(b)
+                local = str(obj.get("local") or obj.get("equipoLocal") or "").strip()
+                visitante = str(obj.get("visitante") or obj.get("equipoVisitante") or "").strip()
+                p1 = float(obj.get("porcentaje1") or obj.get("prob1") or 34)
+                px = float(obj.get("porcentajeX") or obj.get("probX") or 33)
+                p2 = float(obj.get("porcentaje2") or obj.get("prob2") or 33)
+                if p1 > 1 or px > 1 or p2 > 1:
+                    suma = (p1 + px + p2) or 100.0
+                    p1, px, p2 = round(p1 / suma, 2), round(px / suma, 2), round(p2 / suma, 2)
+                if local and visitante:
+                    partidos.append((idx, local, visitante, p1, px, p2))
+            except Exception:
+                continue
 
-    return p1, px, p2
+    # Si no venían en JSON embebido, extraer filas de la tabla del boleto oficial
+    if len(partidos) < 15:
+        partidos = []
+        filas = re.findall(r"<tr[^>]*>(.*?)</tr>", html, re.DOTALL | re.IGNORECASE)
+        for fila in filas:
+            celdas = [limpiar_html(c) for c in re.findall(r"<t[dh][^>]*>(.*?)</t[dh]>", fila, re.DOTALL | re.IGNORECASE)]
+            celdas = [c for c in celdas if c]
+            if len(celdas) < 2:
+                continue
+
+            num_match = re.match(r"^(\d{1,2})$", celdas[0])
+            if not num_match:
+                continue
+            num = int(num_match.group(1))
+            if num < 1 or num > 15:
+                continue
+
+            # Buscar celda con el enfrentamiento "Equipo A - Equipo B"
+            local, visitante = "", ""
+            for c in celdas[1:4]:
+                if " - " in c and len(c) >= 5:
+                    partes = c.split(" - ", 1)
+                    local, visitante = partes[0].strip(), partes[1].strip()
+                    break
+
+            if not local or not visitante:
+                continue
+
+            # Buscar porcentajes (3 números entre 1 y 99 en la fila)
+            nums_fila = []
+            for c in celdas[2:]:
+                for m in re.findall(r"\b(\d{1,2}(?:[.,]\d+)?)\s*%?\b", c):
+                    val = float(m.replace(",", "."))
+                    if 1 <= val <= 98:
+                        nums_fila.append(val)
+
+            if len(nums_fila) >= 3:
+                raw1, rawx, raw2 = nums_fila[-3], nums_fila[-2], nums_fila[-1]
+                suma = (raw1 + rawx + raw2) or 100.0
+                p1 = round(raw1 / suma, 2)
+                px = round(rawx / suma, 2)
+                p2 = round(max(0.01, 1.0 - p1 - px), 2)
+            else:
+                p1, px, p2 = 0.40, 0.30, 0.30
+
+            partidos.append((num, local, visitante, p1, px, p2))
+
+    # Ordenar por número de partido 1..15 y eliminar duplicados
+    unicos = {}
+    for item in partidos:
+        if item[0] not in unicos:
+            unicos[item[0]] = item
+
+    lista_ordenada = [unicos[i] for i in sorted(unicos.keys()) if 1 <= i <= 15]
+    if len(lista_ordenada) < 15:
+        raise RuntimeError(f"Solo se detectaron {len(lista_ordenada)} partidos en Losilla")
+
+    return jornada, fecha_cierre, lista_ordenada
+
+
+def obtener_desde_selae():
+    url = "https://loteriasyapuestas.es"
+    raw = descargar_texto(url)
+    data = json.loads(raw)
+
+    sorteo = data[0] if isinstance(data, list) and data else data
+    jornada = str(sorteo.get("jornada") or sorteo.get("numero_sorteo") or "Activa")
+    fecha_cierre = str(sorteo.get("fecha_sorteo") or "Consultar boleto oficial")[:16].replace("T", " ")
+
+    lista_partidos = sorteo.get("partidos") or []
+    lista_ordenada = []
+    for idx, p in enumerate(lista_partidos[:15], start=1):
+        local = str(p.get("local") or "").strip()
+        visitante = str(p.get("visitante") or "").strip()
+        if local and visitante:
+            lista_ordenada.append((idx, local, visitante, 0.40, 0.30, 0.30))
+
+    if len(lista_ordenada) < 15:
+        raise RuntimeError("SELAE no devolvió los 15 partidos completos")
+
+    return jornada, fecha_cierre, lista_ordenada
 
 
 def obtener_boleto_oficial():
-    primera = leer_espn(URL_PRIMERA)
-    segunda = leer_espn(URL_SEGUNDA)
-
-    seleccion = primera[:10] + segunda[:5]
-    if len(seleccion) < 15:
-        seleccion = (primera + segunda)[:15]
-
-    jornada = "Activa"
-    fecha_cierre = "Consultar horario"
-    primer_evento = next(iter(primera), None)
-    if primer_evento:
-        season = primer_evento.get("season", {})
-        if season.get("year"):
-            jornada = str(season.get("year"))
-        fecha_raw = primer_evento.get("date", "")
-        if fecha_raw:
-            fecha_cierre = fecha_raw[:16].replace("T", " ")
+    fuente = "Boleto Oficial"
+    try:
+        jornada, fecha_cierre, lista = obtener_desde_losilla()
+        fuente = "Boleto Oficial · % Jugados"
+    except Exception:
+        jornada, fecha_cierre, lista = obtener_desde_selae()
+        fuente = "Boleto Oficial SELAE"
 
     partidos_json = []
     partido_15_json = {}
 
-    for idx, ev in enumerate(seleccion[:15], start=1):
-        comp = next(iter(ev.get("competitions") or []), {})
-        equipos = comp.get("competitors") or []
-
-        local = f"Local {idx}"
-        visitante = f"Visitante {idx}"
-        resumen_local = ""
-        resumen_visitante = ""
-        racha_local = "En forma"
-        racha_visitante = "En forma"
-
-        for eq in equipos:
-            nombre = eq.get("team", {}).get("shortDisplayName") or eq.get("team", {}).get("displayName", "")
-            rec = next(iter(eq.get("records") or []), {})
-            resumen = rec.get("summary", "")
-            if eq.get("homeAway") == "home":
-                local = nombre
-                resumen_local = resumen
-                racha_local = f"Balance: {resumen}" if resumen else "Temporada actual"
-            elif eq.get("homeAway") == "away":
-                visitante = nombre
-                resumen_visitante = resumen
-                racha_visitante = f"Balance: {resumen}" if resumen else "Temporada actual"
-
-        prob1, probx, prob2 = calcular_probabilidades(resumen_local, resumen_visitante)
-        liga = "1ª Div" if ev in primera else "2ª Div"
-
+    for num, local, visitante, p1, px, p2 in lista:
         item = {
-            "numero": idx,
+            "numero": num,
             "local": local,
             "visitante": visitante,
-            "prob1": prob1,
-            "probX": probx,
-            "prob2": prob2,
+            "prob1": p1,
+            "probX": px,
+            "prob2": p2,
             "posLocal": 0,
             "posVisitante": 0,
-            "rachaLocal": racha_local,
-            "rachaVisitante": racha_visitante,
-            "h2h": f"Partido #{idx} · {liga}"
+            "rachaLocal": f"1: {int(round(p1 * 100))}%",
+            "rachaVisitante": f"2: {int(round(p2 * 100))}%",
+            "h2h": f"Partido #{num} · {fuente}"
         }
-
-        if idx <= 14:
+        if num <= 14:
             partidos_json.append(item)
-        elif idx == 15:
+        elif num == 15:
             partido_15_json = item
-
-    while len(partidos_json) < 14:
-        n = len(partidos_json) + 1
-        partidos_json.append({
-            "numero": n,
-            "local": f"Por definir {n}A",
-            "visitante": f"Por definir {n}B",
-            "prob1": 0.34,
-            "probX": 0.33,
-            "prob2": 0.33,
-            "posLocal": 10,
-            "posVisitante": 10,
-            "rachaLocal": "-",
-            "rachaVisitante": "-",
-            "h2h": "Pendiente de jornada"
-        })
-
-    if not partido_15_json:
-        partido_15_json = {
-            "numero": 15,
-            "local": "Por definir 15A",
-            "visitante": "Por definir 15B",
-            "prob1": 0.34,
-            "probX": 0.33,
-            "prob2": 0.33,
-            "posLocal": 10,
-            "posVisitante": 10,
-            "rachaLocal": "-",
-            "rachaVisitante": "-",
-            "h2h": "Pleno al 15"
-        }
 
     salida = {
         "titulo_jornada": f"Jornada {jornada} · La Quiniela",
